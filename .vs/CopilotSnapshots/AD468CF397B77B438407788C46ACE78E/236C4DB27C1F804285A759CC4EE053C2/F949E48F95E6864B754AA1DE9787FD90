@@ -1,0 +1,424 @@
+﻿using System;
+using System.Drawing;
+using System.Media;
+using System.Windows.Forms;
+using flappy_bird_tesst.Properties;
+
+namespace flappy_bird_tesst
+{
+    public partial class Form1 : Form
+    {
+        // Game state
+        private int pipeSpeed = 5;   // Pipe horizontal speed
+        private int score = 0;
+        private bool isFlapping = false;
+        private bool isPaused = false;
+        private bool isGameOver = false;
+        private Random rng = new Random();
+
+        // Bird physics (smoother, fewer clicks)
+        private float birdY;                 // precise vertical position
+        private float velY;                  // vertical velocity
+        private float gravityF = 0.6f;       // gravity acceleration per tick
+        private float flapVel = -8.0f;       // velocity set when flapping
+        private float maxFallSpeed = 12.0f;  // terminal velocity
+
+        // Bird animation
+        private Bitmap birdFrameDown;
+        private Bitmap birdFrameMid;
+        private Bitmap birdFrameUp;
+        private int animTick = 0;
+        private int animIntervalTicks = 4; // change frame every N ticks
+        private int wingFrame = 0; // 0=down,1=mid,2=up
+
+        // Pipe sprites
+        private Bitmap pipeSprite;        // bottom pipe image (unflipped)
+        private Bitmap pipeTopSprite;     // top pipe image (flipped vertically)
+
+        // Sounds
+        private SoundPlayer sWing;
+        private SoundPlayer sPoint;
+        private SoundPlayer sHit;
+        private SoundPlayer sDie;
+        private SoundPlayer sSwoosh;
+
+        // Overlays
+        private PictureBox overlayMessage;
+        private PictureBox overlayGameOver;
+
+        public Form1()
+        {
+            InitializeComponent();
+
+            // Reduce flicker
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true);
+
+            // Clean up on close
+            this.FormClosed += (s, e) => CleanupResources();
+
+            // Prepare resources and UI
+            InitializeResources();
+            InitializeUiAssets();
+
+            InitializeGame();
+        }
+
+        private void InitializeResources()
+        {
+            // Randomize background (day or night)
+            var bg = rng.Next(2) == 0 ? Resources.background_day : Resources.background_night;
+            this.BackgroundImage = bg;
+            this.BackgroundImageLayout = ImageLayout.Stretch;
+
+            // Randomize bird color set
+            int birdSet = rng.Next(3); // 0=yellow,1=blue,2=red
+            switch (birdSet)
+            {
+                case 1:
+                    birdFrameDown = Resources.bluebird_downflap;
+                    birdFrameMid = Resources.bluebird_midflap;
+                    birdFrameUp = Resources.bluebird_upflap;
+                    break;
+                case 2:
+                    birdFrameDown = Resources.redbird_downflap;
+                    birdFrameMid = Resources.redbird_midflap;
+                    birdFrameUp = Resources.redbird_upflap;
+                    break;
+                default:
+                    birdFrameDown = Resources.yellowbird_downflap;
+                    birdFrameMid = Resources.yellowbird_midflap;
+                    birdFrameUp = Resources.yellowbird_upflap;
+                    break;
+            }
+
+            // Prepare sounds
+            sWing = new SoundPlayer(Resources.wing);
+            sPoint = new SoundPlayer(Resources.point);
+            sHit = new SoundPlayer(Resources.hit);
+            sDie = new SoundPlayer(Resources.die);
+            sSwoosh = new SoundPlayer(Resources.swoosh);
+
+            // Ground texture
+            ground.BackgroundImage = Resources._base;
+            ground.BackgroundImageLayout = ImageLayout.Tile;
+
+            // PictureBox display modes
+            bird.BackColor = Color.Transparent;                 // remove outline halo
+            bird.SizeMode = PictureBoxSizeMode.AutoSize;        // avoid scaling artifacts
+            pipeTop.SizeMode = PictureBoxSizeMode.StretchImage;
+            pipeBottom.SizeMode = PictureBoxSizeMode.StretchImage;
+        }
+
+        private void InitializeUiAssets()
+        {
+            // Message overlay (Get Ready)
+            if (overlayMessage == null)
+            {
+                overlayMessage = new PictureBox
+                {
+                    BackColor = Color.Transparent,
+                    SizeMode = PictureBoxSizeMode.AutoSize,
+                    Image = Resources.message
+                };
+                Controls.Add(overlayMessage);
+                overlayMessage.BringToFront();
+            }
+
+            // Game over overlay
+            if (overlayGameOver == null)
+            {
+                overlayGameOver = new PictureBox
+                {
+                    BackColor = Color.Transparent,
+                    SizeMode = PictureBoxSizeMode.AutoSize,
+                    Image = Resources.gameover,
+                    Visible = false
+                };
+                Controls.Add(overlayGameOver);
+                overlayGameOver.BringToFront();
+            }
+
+            // Style instruction label like a caption; place initially hidden
+            lblInstructions.AutoSize = true;
+            lblInstructions.BackColor = Color.Transparent;
+            lblInstructions.BorderStyle = BorderStyle.None;
+            lblInstructions.Visible = false;
+
+            PositionOverlays();
+        }
+
+        private void PositionOverlays()
+        {
+            if (overlayMessage != null)
+            {
+                overlayMessage.Left = (ClientSize.Width - overlayMessage.Width) / 2;
+                overlayMessage.Top = 100;
+            }
+            if (overlayGameOver != null)
+            {
+                overlayGameOver.Left = (ClientSize.Width - overlayGameOver.Width) / 2;
+                overlayGameOver.Top = 120;
+            }
+
+            // If game over text is visible, keep it right below the PNG
+            if (overlayGameOver != null && overlayGameOver.Visible && lblInstructions.Visible)
+            {
+                PositionLabelBelowOverlay();
+            }
+        }
+
+        private void PositionLabelBelowOverlay()
+        {
+            const int margin = 10;
+            lblInstructions.Left = (ClientSize.Width - lblInstructions.Width) / 2;
+            lblInstructions.Top = overlayGameOver.Bottom + margin;
+            lblInstructions.BringToFront();
+        }
+
+        private void InitializeGame()
+        {
+            // Reset game objects
+            score = 0;
+            lblScore.Text = "Score: 0";
+            isPaused = false;
+            isFlapping = false;
+            isGameOver = false;
+            wingFrame = 0;
+            animTick = 0;
+            pipeSpeed = 5;
+
+            // Place bird and reset sprite/physics
+            bird.Location = new Point(80, 220);
+            bird.Image = birdFrameMid;
+            birdY = bird.Top;
+            velY = 0f;
+
+            // Choose pipe color
+            SetPipeSprites(rng.Next(2) == 0 ? Resources.pipe_green : Resources.pipe_red);
+
+            // Create an initial random gap position
+            ApplyRandomGap(resetX: true);
+
+            // Overlays
+            if (overlayMessage != null) overlayMessage.Visible = true;
+            if (overlayGameOver != null) overlayGameOver.Visible = false;
+            lblInstructions.Visible = false; // use overlays instead of text
+
+            gameTimer.Start();
+        }
+
+        private void SetPipeSprites(Bitmap bottomPipe)
+        {
+            // Dispose previous if exists to avoid leaks
+            if (pipeSprite != null && !object.ReferenceEquals(pipeSprite, bottomPipe))
+            {
+                pipeSprite.Dispose();
+            }
+            if (pipeTopSprite != null)
+            {
+                pipeTopSprite.Dispose();
+                pipeTopSprite = null;
+            }
+
+            // Assign bottom sprite
+            pipeSprite = (Bitmap)bottomPipe.Clone();
+
+            // Create vertically flipped sprite for top pipe
+            pipeTopSprite = (Bitmap)pipeSprite.Clone();
+            pipeTopSprite.RotateFlip(RotateFlipType.RotateNoneFlipY);
+
+            // Apply to picture boxes
+            pipeBottom.Image = pipeSprite;
+            pipeTop.Image = pipeTopSprite;
+        }
+
+        private void ApplyRandomGap(bool resetX)
+        {
+            // Slightly vary gap size and vertical position
+            int gapSize = rng.Next(120, 171); // 120..170
+            int playAreaBottom = ClientSize.Height - ground.Height;
+            int minGapTop = 80;
+            int maxGapTop = Math.Max(minGapTop + 1, playAreaBottom - gapSize - 80);
+            int gapTop = rng.Next(minGapTop, maxGapTop);
+
+            // Set verticals
+            int topVisualHeight = 320; // make sure top pipe reaches off-screen
+            pipeTop.Height = topVisualHeight;
+            pipeTop.Top = gapTop - topVisualHeight; // bottom aligns with gapTop
+
+            pipeBottom.Top = gapTop + gapSize;
+            pipeBottom.Height = playAreaBottom - pipeBottom.Top;
+
+            // Reset X to right edge if requested
+            if (resetX)
+            {
+                int startX = ClientSize.Width + 40; // closer spawn
+                pipeTop.Left = startX;
+                pipeBottom.Left = startX;
+            }
+            else
+            {
+                // Occasionally switch pipe color on recycle
+                if (rng.Next(4) == 0) // 25% chance to switch color theme
+                {
+                    SetPipeSprites(rng.Next(2) == 0 ? Resources.pipe_green : Resources.pipe_red);
+                }
+            }
+        }
+
+        private void gameTimer_Tick(object sender, EventArgs e)
+        {
+            if (isPaused || isGameOver) return;
+
+            // Bird physics (velocity-based)
+            velY += gravityF;
+            if (isFlapping)
+            {
+                velY = flapVel;  // one-shot set upward velocity
+                isFlapping = false;
+            }
+            if (velY > maxFallSpeed) velY = maxFallSpeed;
+            birdY += velY;
+            bird.Top = (int)birdY;
+
+            // Animate bird wings
+            AnimateBird();
+
+            // Move pipes
+            pipeTop.Left -= pipeSpeed;
+            pipeBottom.Left -= pipeSpeed;
+
+            // Recycle pipes if they leave screen and increase score
+            if (pipeTop.Right < 0)
+            {
+                ApplyRandomGap(resetX: true);
+                score++;
+                lblScore.Text = $"Score: {score}";
+                SafePlay(sPoint);
+
+                // Gradually increase difficulty
+                if (score % 5 == 0)
+                {
+                    pipeSpeed = Math.Min(12, pipeSpeed + 1);
+                }
+            }
+
+            // Collision detection
+            if (CheckCollision())
+            {
+                GameOver();
+                return;
+            }
+        }
+
+        private void AnimateBird()
+        {
+            animTick++;
+            if (animTick >= animIntervalTicks)
+            {
+                animTick = 0;
+                wingFrame = (wingFrame + 1) % 3;
+                switch (wingFrame)
+                {
+                    case 0: bird.Image = birdFrameDown; break;
+                    case 1: bird.Image = birdFrameMid; break;
+                    case 2: bird.Image = birdFrameUp; break;
+                }
+            }
+        }
+
+        private bool CheckCollision()
+        {
+            // Ground or ceiling
+            if (bird.Bottom >= ground.Top || bird.Top <= 0)
+                return true;
+
+            // Pipes
+            Rectangle birdRect = bird.Bounds;
+            if (birdRect.IntersectsWith(pipeTop.Bounds) || birdRect.IntersectsWith(pipeBottom.Bounds))
+                return true;
+
+            return false;
+        }
+
+        private void GameOver()
+        {
+            isGameOver = true;
+            gameTimer.Stop();
+            if (overlayGameOver != null) overlayGameOver.Visible = true;
+            if (overlayMessage != null) overlayMessage.Visible = false;
+            SafePlay(sHit);
+            SafePlay(sDie);
+
+            // Show a simple caption right under the PNG
+            lblInstructions.Visible = true;
+            lblInstructions.Text = "Press R to play again"; // only this text
+            PositionLabelBelowOverlay();
+        }
+
+        private void SafePlay(SoundPlayer sp)
+        {
+            try { sp?.Stop(); sp?.Play(); } catch { /* ignore */ }
+        }
+
+        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Space)
+            {
+                if (!isPaused && !isGameOver)
+                {
+                    isFlapping = true;
+                    if (overlayMessage != null && overlayMessage.Visible)
+                        overlayMessage.Visible = false;
+                    SafePlay(sWing);
+                }
+            }
+            else if (e.KeyCode == Keys.R)
+            {
+                SafePlay(sSwoosh);
+                InitializeGame();
+            }
+            else if (e.KeyCode == Keys.Escape)
+            {
+                isPaused = !isPaused;
+                // Keep pause text minimal; do not alter game-over placement
+                if (!isGameOver)
+                {
+                    lblInstructions.Visible = true;
+                    lblInstructions.Text = isPaused ? "Paused. Esc to resume." : "Press Space to flap. Press R to restart. Esc to pause.";
+                    // center at top area
+                    lblInstructions.Left = (ClientSize.Width - lblInstructions.Width) / 2;
+                    lblInstructions.Top = 20;
+                }
+            }
+        }
+
+        private void Form1_KeyUp(object sender, KeyEventArgs e)
+        {
+            // No continuous action needed on key up for this template
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            PositionOverlays();
+        }
+
+        private void CleanupResources()
+        {
+            try { pipeSprite?.Dispose(); pipeSprite = null; } catch { }
+            try { pipeTopSprite?.Dispose(); pipeTopSprite = null; } catch { }
+            try { sWing?.Stop(); sPoint?.Stop(); sHit?.Stop(); sDie?.Stop(); sSwoosh?.Stop(); } catch { }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void pipeTop_Click(object sender, EventArgs e)
+        {
+
+        }
+    }
+}

@@ -1,0 +1,145 @@
+﻿using System;
+using System.Drawing;
+using System.Windows.Forms;
+
+namespace flappy_bird_tesst
+{
+    public partial class Form1 : Form
+    {
+        // Game state
+        private int gravity = 2;     // Bird falling speed
+        private int flapPower = -15; // Upward impulse on flap
+        private int pipeSpeed = 5;   // Pipe horizontal speed
+        private int score = 0;
+        private bool isFlapping = false;
+        private bool isPaused = false;
+        private Random rng = new Random();
+
+        public Form1()
+        {
+            InitializeComponent();
+            InitializeGame();
+        }
+
+        private void InitializeGame()
+        {
+            // Reset game objects
+            score = 0;
+            lblScore.Text = "Score: 0";
+            isPaused = false;
+            isFlapping = false;
+
+            // Place bird
+            bird.Location = new Point(80, 220);
+
+            // Create an initial random gap position
+            ApplyRandomGap(resetX: true);
+
+            gameTimer.Start();
+        }
+
+        private void ApplyRandomGap(bool resetX)
+        {
+            int gapSize = 140; // Distance between top and bottom pipe
+            int minTopHeight = 60;
+            int maxTopHeight = 300;
+            int topHeight = rng.Next(minTopHeight, maxTopHeight);
+
+            // Set verticals
+            pipeTop.Height = topHeight;
+            pipeTop.Top = -pipeTop.Height + 20; // start above the screen a bit
+
+            pipeBottom.Top = pipeTop.Bottom + gapSize;
+            pipeBottom.Height = ClientSize.Height - pipeBottom.Top - ground.Height;
+
+            // Reset X to right edge if requested
+            if (resetX)
+            {
+                int startX = ClientSize.Width + 100;
+                pipeTop.Left = startX;
+                pipeBottom.Left = startX;
+            }
+        }
+
+        private void gameTimer_Tick(object sender, EventArgs e)
+        {
+            if (isPaused) return;
+
+            // Bird physics
+            int velocityY = gravity;
+            if (isFlapping)
+            {
+                velocityY += flapPower; // negative value to push up
+                isFlapping = false;     // one-shot impulse on key press
+            }
+            bird.Top += velocityY;
+
+            // Move pipes
+            pipeTop.Left -= pipeSpeed;
+            pipeBottom.Left -= pipeSpeed;
+
+            // Recycle pipes if they leave screen and increase score
+            if (pipeTop.Right < 0)
+            {
+                ApplyRandomGap(resetX: true);
+                score++;
+                lblScore.Text = $"Score: {score}";
+
+                // Gradually increase difficulty
+                if (score % 5 == 0)
+                {
+                    pipeSpeed = Math.Min(12, pipeSpeed + 1);
+                }
+            }
+
+            // Collision detection
+            if (CheckCollision())
+            {
+                GameOver();
+                return;
+            }
+        }
+
+        private bool CheckCollision()
+        {
+            // Ground or ceiling
+            if (bird.Bottom >= ground.Top || bird.Top <= 0)
+                return true;
+
+            // Pipes
+            Rectangle birdRect = bird.Bounds;
+            if (birdRect.IntersectsWith(pipeTop.Bounds) || birdRect.IntersectsWith(pipeBottom.Bounds))
+                return true;
+
+            return false;
+        }
+
+        private void GameOver()
+        {
+            gameTimer.Stop();
+            lblInstructions.Text = "Game Over! Press R to restart. Esc to quit/pause.";
+        }
+
+        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Space)
+            {
+                isFlapping = true;
+            }
+            else if (e.KeyCode == Keys.R)
+            {
+                InitializeGame();
+            }
+            else if (e.KeyCode == Keys.Escape)
+            {
+                isPaused = !isPaused;
+                lblInstructions.Text = isPaused ? "Paused. Esc to resume." : "Press Space to flap. Press R to restart.\r\nEsc to pause/resume.";
+            }
+        }
+
+        private void Form1_KeyUp(object sender, KeyEventArgs e)
+        {
+            // No continuous action needed on key up for this template
+        }
+    }
+}

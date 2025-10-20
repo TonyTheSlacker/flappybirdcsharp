@@ -1,0 +1,10 @@
+C:\Users\hoanh\Documents\HCMUE\2025-2026-1st Semester\COMP1019-LTWIN\flappy bird tesst\flappy bird tesst\obj\Release\flappy bird tesst.csproj.AssemblyReference.cache
+C:\Users\hoanh\Documents\HCMUE\2025-2026-1st Semester\COMP1019-LTWIN\flappy bird tesst\flappy bird tesst\obj\Release\flappy_bird_tesst.Form1.resources
+C:\Users\hoanh\Documents\HCMUE\2025-2026-1st Semester\COMP1019-LTWIN\flappy bird tesst\flappy bird tesst\obj\Release\flappy_bird_tesst.Properties.Resources.resources
+C:\Users\hoanh\Documents\HCMUE\2025-2026-1st Semester\COMP1019-LTWIN\flappy bird tesst\flappy bird tesst\obj\Release\flappy bird tesst.csproj.GenerateResource.cache
+C:\Users\hoanh\Documents\HCMUE\2025-2026-1st Semester\COMP1019-LTWIN\flappy bird tesst\flappy bird tesst\obj\Release\flappy bird tesst.csproj.CoreCompileInputs.cache
+C:\Users\hoanh\Documents\HCMUE\2025-2026-1st Semester\COMP1019-LTWIN\flappy bird tesst\flappy bird tesst\bin\Release\flappy bird tesst.exe.config
+C:\Users\hoanh\Documents\HCMUE\2025-2026-1st Semester\COMP1019-LTWIN\flappy bird tesst\flappy bird tesst\bin\Release\flappy bird tesst.exe
+C:\Users\hoanh\Documents\HCMUE\2025-2026-1st Semester\COMP1019-LTWIN\flappy bird tesst\flappy bird tesst\bin\Release\flappy bird tesst.pdb
+C:\Users\hoanh\Documents\HCMUE\2025-2026-1st Semester\COMP1019-LTWIN\flappy bird tesst\flappy bird tesst\obj\Release\flappy bird tesst.exe
+C:\Users\hoanh\Documents\HCMUE\2025-2026-1st Semester\COMP1019-LTWIN\flappy bird tesst\flappy bird tesst\obj\Release\flappy bird tesst.pdb
