@@ -61,7 +61,4 @@ this.SetStyle(
 
 2. **Open flappy bird tesst.sln in Visual Studio.**
 
-3. **Set the configuration to Release.**
-
-Press F5 to build and run.
-
+3. **Set the configuration to Release and press F5 to build and run.**
