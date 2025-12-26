@@ -55,13 +55,13 @@ this.SetStyle(
 
 ### Steps
 
-    Clone the repository:
-    Bash
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/TonyTheSlacker/flappybirdcsharp.git](https://github.com/TonyTheSlacker/flappybirdcsharp.git)
 
-git clone [https://github.com/TonyTheSlacker/flappybirdcsharp.git](https://github.com/TonyTheSlacker/flappybirdcsharp.git)
+2. **Open flappy bird tesst.sln in Visual Studio.**
 
-Open flappy bird tesst.sln in Visual Studio.
-
-Set the configuration to Release.
+3. **Set the configuration to Release.**
 
 Press F5 to build and run.
+
