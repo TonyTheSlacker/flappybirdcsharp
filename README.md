@@ -1,39 +1,67 @@
-# Flappy Bird (Windows Forms, .NET Framework 4.8)
+# Flappy Bird Clone (.NET / WinForms)
 
-## Giới thiệu
+![Language](https://img.shields.io/badge/Language-C%23-239120)
+![Framework](https://img.shields.io/badge/.NET-Framework_4.8-512BD4)
+![Status](https://img.shields.io/badge/Status-Stable-success)
 
-Bản mô phỏng Flappy Bird với ống xanh/đỏ, cơ chế bay mượt, điểm số dạng sprite. Khi bắt đầu game mới sẽ có hộp chọn màu chim (Vàng/Xanh/Đỏ) bằng hình PNG trực quan.
+A high-fidelity recreation of the classic Flappy Bird mechanism, built using **C# (Windows Forms)**.
 
-## Yêu cầu
+Unlike standard WinForms applications that rely on default controls, this project utilizes **GDI+ graphics compositing** and **Optimized Double Buffering** to achieve smooth, flicker-free rendering at 60 FPS.
 
-* Windows + .NET Framework 4.8
-* Visual Studio 2019/2022 (khuyến nghị)
+---
 
-## Cách chạy nhanh
+## 🎮 Features
 
-1.  Mở solution.
-2.  Chọn cấu hình Release > Build.
-3.  Chạy file: `flappy bird tesst\bin\Release\flappy bird tesst.exe`
+* **Physics-Based Movement:** Implements custom velocity accumulation and gravity acceleration for "heavy" feeling flight mechanics.
+* **Dynamic Difficulty:**
+    * **Green Pipes:** Standard gap size.
+    * **Red Pipes:** Randomized "Hard Mode" pipes (10% spawn rate) with tighter gaps and double points.
+* **Smart Rendering:** Pipes are dynamically composited from sprite slices to prevent texture stretching on variable-height columns.
+* **Asset Selection:** Choose your bird color (Yellow/Blue/Red) via a custom UI overlay before starting.
+* **State Management:** Finite State Machine (FSM) handling Attract Mode (Idle), Gameplay, and Game Over states.
 
-## Điều khiển
+## 🛠️ Technical Highlights
 
-* **Space:** Vỗ cánh
-* **Esc:** Tạm dừng / Tiếp tục
-* **R:** Chơi lại
-* **1/2/3:** Chọn màu chim ở màn hình chọn chim
+### 1. GDI+ Sprite Compositing
+To avoid the "stretched pixel" look common in WinForms games, I implemented a custom rendering pipeline. The `ComposePipeBitmap` function slices the source sprite, keeping the "Pipe Cap" aspect ratio locked while tiling the body 1px slice to fill the remaining height.
 
-## Tính năng chính
+```csharp
+// Logic from Form1.cs
+private Bitmap ComposePipeBitmap(bool isHard, bool isTop, int targetWidth, int targetHeight)
+{
+    // Draws the cap (fixed height) and tiles the body (variable height)
+    // to ensure high-quality visual scaling without distortion.
+    // ...
+}
+```
+### 2. Flicker Reduction
 
-* Chọn màu chim bằng overlay PNG khi bắt đầu game.
-* Ống xanh (dễ) và ống đỏ (khó), điểm tương ứng 1/2.
-* Khoảng trống giữa ống thay đổi mạnnh theo từng cột (ít lặp).
-* Âm thanh đồng bộ: điểm, va chạm, rơi.
-* Điểm số hiển thị bằng sprite số.
+WinForms is notorious for screen flickering during rapid repaints. I overrode the CreateParams and enabled double-buffering to force the GPU/CPU to render the frame in memory before drawing it to the screen.
+```csharp
+this.SetStyle(
+    ControlStyles.AllPaintingInWmPaint |
+    ControlStyles.OptimizedDoubleBuffer |
+    ControlStyles.UserPaint,
+    true
+);
+```
 
-## Thư mục / Files đáng chú ý
+## 🚀 How to Run
+### Prerequisites
 
-* `Form1.cs`: Logic game, vật lý, va chạm, âm thanh, chọn chim.
-* `Form1.Designer.cs`: Khai báo control.
-* `Properties\Resources.respx`: Sprites/âm thanh.
+    Visual Studio 2019 or 2022
 
-#flappybirdcsharp
+    .NET Framework 4.8
+
+### Steps
+
+    Clone the repository:
+    Bash
+
+git clone [https://github.com/TonyTheSlacker/flappybirdcsharp.git](https://github.com/TonyTheSlacker/flappybirdcsharp.git)
+
+Open flappy bird tesst.sln in Visual Studio.
+
+Set the configuration to Release.
+
+Press F5 to build and run.
